@@ -1,0 +1,27 @@
+apiVersion: apps.kruise.io/v1alpha1
+kind: DaemonSet
+metadata:
+  name: nginx
+  namespace: default
+spec:
+  updateStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      rollingUpdateType: Standard
+      selector: #修改点1：添加节点selector
+        matchLabels: #只会针对192.168.0.21节点做做更新
+          kubernetes.io/hostname: 192.168.0.21     
+  selector:
+    matchLabels:
+      k8s-app: nginx
+  template:
+    metadata:
+      labels:
+        k8s-app: nginx
+    spec:
+      containers:
+      - image: nginx #修改点2：修改nginx镜像
+        name: nginx
+        ports:
+        - name: http
+          containerPort: 80

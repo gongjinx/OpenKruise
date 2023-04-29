@@ -1,0 +1,63 @@
+该控制器在原生的 StatefulSet 基础上增强了发布能力，比如 maxUnavailable 并行发布、原地升级等，该对象的名称也是 StatefulSet,但是 apiVersion 是 apps.kruise.io/v1beta1,
+这个 CRD 的所有默认字段、默认行为与原生 StatefulSet 完全一致，除此之外还提供了一些 optional 字段来扩展增强的策略。因此，用户从原生 StatefulSet 迁移到 Advanced StatefulSet,只需要把 apiVersion 修改后提交即可
+
+Advanced StatefulSet 在滚动更新策略中新增了 maxUnavailable 来支持并行 Pod 发布，它会保证发布过程中最多有多少个 Pod 处于不可用状态。
+
+注意,maxUnavailable 只能配合 podManagementPolicy 为 Parallel 来使用。
+
+===================
+同样的 Advanced StatefulSet 也支持原地升级自动预热。
+
+也可以通过设置 paused 为 true 来暂停发布，不过控制器还是会做 replicas 数量管理：
+apiVersion: apps.kruise.io/v1beta1
+kind: StatefulSet
+spec:
+  updateStrategy:
+    rollingUpdate:
+      paused: true
+
+===================
+另外 Advanced StatefulSet 还支持序号保留功能，通过在 reserveOrdinals 字段中写入需要保留的序号,Advanced StatefulSet 会自动跳过创建这些序号的 Pod如果 Pod 已经存在，则会被删除。
+注意,spec.replicas 是期望运行的 Pod 数量,spec.reserveOrdinals 是要跳过的序号。
+
+========================
+恢度发布
+Advanced DaemonSet
+这个控制器基于原生 DaemonSet 上增强了发布能力，比如灰度分批、按 Node label 选择、暂停、热升级等。同样的该对象的 Kind 名字也是 DaemonSet,只是 apiVersion 是 apps.kruise.io/v1alpha1,这个CRD 的所有默认字段、默认行为与原生 DaemonSet 完全一致，除此之外还提供了一些 optional 字段来扩展增强的策略。
+
+
+Advanced DaemonSet 在 spec.updateStrategy.rollingUpdate 中有一个 rollingUpdateType 字段，标识了如何进行滚动升级：
+
+Standard: 对于每个节点，控制器会先删除旧的 daemon Pod再创建一个新 Pod和原生 DaemonSet 行为一致。
+Surging: 对于每个 node控制器会先创建一个新 Pod等它 ready 之后再删除老 Pod。
+
+此外这个策略还支持用户通过配置 node 标签的 selector,来指定灰度升级某些特定类型 node 上的 Pod。比如现在我们只升级 node1 节点的应用,则可以使用selector标签来标识:
+selector: #添加节点selector
+    matchLabels: #只会针对node1节点做做更新
+        kubernetes.io/hostname: node1
+
+============================
+分批灰度升级, 使用 Partition进行配置Partition的语义是保留旧版本Pod的数量,默认为0,如果在发布过程中设置了partition,则控制器只会将(status.DesiredNumberScheduled - partition)数量的Pod更新到最新版本。
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

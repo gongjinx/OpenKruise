@@ -1,0 +1,9 @@
+SidecarSet 支持通过 admission webhook 来自动为集群中创建的符合条件的Pod注入sidecar容器。除了在Pod创建时候注入外,SidecarSet还提供了为Pod原地升级其中已经注入的sidecar容器镜像的能力。
+SidecarSet 将 sidecar容器的定义和生命周期与业务容器解耦,它主要用于管理无状态的sidecar容器,比如监控、日志等 agent。
+
+注意:istios里就是这样干的,给pod里注入一个envop sidercar容器,然后对流量进行拦截
+
+更新镜像：
+kubectl patch sidecarset test-sidecarset --type='json' -p='[{"op": "replace", "path": "/spec/containers/0/image", "value": "busybox:1.35.0"}]'
+
+kubectl patch sidecarset test-sidecarset --type='json' -p='[{"op": "replace", "path": "/spec/containers/0/image", "value": "busybox"}]'

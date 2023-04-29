@@ -1,0 +1,24 @@
+apiVersion: apps.kruise.io/v1alpha1
+kind: CloneSet
+metadata:
+  name: cs-demo
+  namespace: default
+spec:
+  minReadySeconds: 30 #本次我们设置为30s即可
+  scaleStrategy:
+    maxUnavailable: 2  #修改两个可以看到扩容同时启动两个pod
+  replicas: 8
+  selector:
+    matchLabels:
+      app: cs
+  template:
+    metadata:
+      labels:
+        app: cs
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:alpine
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 80

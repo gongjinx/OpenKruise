@@ -1,0 +1,70 @@
+https://blog.csdn.net/weixin_39246554/article/details/123425279
+查看资源信息
+[root@master1 ~]#kubectl get cloneset cs-demo
+
+该对象创建完成后我们可以通过 kubectl describe 命令查看对应的 Events 信息，可以发现 cloneset-controller 是直接创建的 Pod，这个和原生的 Deployment 就有一些区别了，Deployment 是通过 ReplicaSet 去创建的 Pod，所以从这里也可以看出来 CloneSet 是直接管理 Pod 的，3个副本的 Pod 此时也创建成功了
+
+
+CloneSet 虽然在使用上和 Deployment 比较类似，但还是有非常多比 Deployment 更高级的功能，下面我们来详细介绍下。
+
+注意: 这个volumeClaimTemplates之前不是在statefuleset控制器里出现的吗,这里怎么也出现在了deployment控制里了呢。–>可能还是有一些比较变态的业务场景，它需要只针对这1/2个pod做配置,也就是把这容器当成了传统的业务虚机来看待使用。
+
+CloneSet 在扩容的时候可以通过 ScaleStrategy.MaxUnavailable 来限制扩容的步长，这样可以对服务应用的影响最小，可以设置一个绝对值或百分比，如果不设置该值，则表示不限制。
+apiVersion: apps.kruise.io/v1alpha1
+kind: CloneSet
+metadata:
+  name: cs-demo
+spec:
+  minReadySeconds: 60
+  scaleStrategy:
+    maxUnavailable: 1
+  replicas: 5
+  ......
+
+上面我们配置 scaleStrategy.maxUnavailable 为1,结合 minReadySeconds 参数，表示在扩容时，只有当上一个扩容出的 Pod 已经 Ready 超过一分钟后,CloneSet 才会执行创建下一个 Pod。
+
+=====================
+当ClonSet被缩容时，可以指定删除pod，StatefulSet 是根据序号来删除 Pod，而 Deployment/ReplicaSet 目前只能根据控制器里定义的排序来删除。而 CloneSet 允许用户在缩小 replicas 数量的同时，指定想要删除的 Pod 名字。
+参数： podsToDelete:
+    - cs-demo-79rcx  #指要删除的pod名称
+
+====================
+原地升级：
+pod原地升级概念
+ReCreate: 删除旧 Pod 和它的 PVC，然后用新版本重新创建出来，这是默认的方式。 (注意：deployment这里默认的升级策略是滚动升级，但这里CloneSet默认的策略是ReCreate。)
+InPlaceIfPossible: 会优先尝试原地升级 Pod，如果不行再采用重建升级
+InPlaceOnly: 只允许采用原地升级，因此，用户只能修改上一条中的限制字段，如果尝试修改其他字段会被拒绝
+
+
+重建升级时我们需要删除旧 Pod、创建新 Pod：
+Pod 名字和 uid 发生变化，因为它们是完全不同的两个 Pod 对象（比如 Deployment 升级）
+Pod 名字可能不变、但 uid 变化，因为它们是不同的 Pod 对象，只是复用了同一个名字（比如 StatefulSet 升级）
+Pod 所在 Node 名字可能发生变化，因为新 Pod 很可能不会调度到之前所在的 Node 节点
+Pod IP 发生变化，因为新 Pod 很大可能性是不会被分配到之前的 IP 地址
+
+
+但是对于原地升级，我们仍然复用同一个 Pod 对象，只是修改它里面的字段：
+可以避免如调度、分配 IP、挂载盘等额外的操作和代价
+更快的镜像拉取，因为会复用已有旧镜像的大部分 layer 层，只需要拉取新镜像变化的一些 layer
+当一个容器在原地升级时，Pod 中的其他容器不会受到影响，仍然维持运行
+
+
+=======================
+预热灰度发布
+如果你在安装或升级 Kruise 的时候启用了 PreDownloadImageForInPlaceUpdate 这个 feature-gate，CloneSet 控制器会自动在所有旧版本 pod 所在节点上预热你正在灰度发布的新版本镜像，这对于应用发布加速很有帮助。
+
+默认情况下 CloneSet 每个新镜像预热时的并发度都是1，也就是一个个节点拉镜像，如果需要调整，你可以在 CloneSet annotation 上设置并发度：
+叁数：annotations:
+    apps.kruise.io/image-predownload-parallelism: "5"
+
+注意，为了避免大部分不必要的镜像拉取，目前只针对 replicas > 3 的 CloneSet 做自动预热。
+CloneSet 还支持分批进行灰度
+
+此外 CloneSet 还支持分批进行灰度，在 updateStrategy 属性中可以配置 partition 参数，该参数可以用来保留旧版本 Pod 的数量或百分比，默认为0：
+
+如果是数字，控制器会将 (replicas - partition) 数量的 Pod 更新到最新版本
+如果是百分比，控制器会将 (replicas * (100% - partition)) 数量的 Pod 更新到最新版本
+比如，我们将上面示例中的的 image 更新为 nginx:latest 并且设置 partition=2: 利用这个参数可以恢度发布
+
+
+

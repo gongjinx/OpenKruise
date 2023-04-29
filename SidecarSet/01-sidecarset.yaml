@@ -1,0 +1,21 @@
+apiVersion: apps.kruise.io/v1alpha1
+kind: SidecarSet
+metadata:
+  name: test-sidecarset
+spec:
+  selector: 
+    matchLabels:
+      app: nginx
+  updateStrategy:
+    type: RollingUpdate
+    maxUnavailable: 1
+  containers:
+  - name: sidecar1
+    image: busybox:1.35.0
+    command: [ "/bin/sh", "-c", "sleep 5 && touch /tmp/aa.txt && sleep 999d" ]  #通过注入提前完成初始化
+    volumeMounts:
+    - name: log-volume
+      mountPath: /var/log
+  volumes:
+  - name: log-volume
+    emptyDir: {}

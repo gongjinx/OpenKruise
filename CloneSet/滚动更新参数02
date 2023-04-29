@@ -1,0 +1,21 @@
+maxUnavailable 参数指定了在进行 RollingUpdate 时，最多可以同时关闭多少个 Pod，也就是说，在更新期间集群中最少会有多少个 Pod 是可用的。在设置 maxUnavailable 参数时，您可以使用百分比来表示关闭 Pod 的最大比例，也可以使用整数值来表示关闭 Pod 的最大数量。
+
+maxSurge 参数指定了在进行 RollingUpdate 时，可以同时启动多少个新的 Pod，也就是说，在更新期间集群中最多可以有多少个 Pod 是可用的。在设置 maxSurge 参数时，您可以使用百分比来表示启动新 Pod 的最大比例，也可以使用整数值来表示启动新 Pod 的最大数量。
+
+当 maxUnavailable 设置为 0 时，表示在进行 RollingUpdate 时不允许关闭任何 Pod，这意味着更新过程中集群中始终会有足够的 Pod 是可用的。而 maxSurge 设置为 1，则表示在进行 RollingUpdate 时允许同时启动一个新的 Pod，这样可以确保更新期间集群中的可用 Pod 数量不会减少。
+需要注意的是，在进行 RollingUpdate 时，maxUnavailable 和 maxSurge 两个参数的组合设置应该根据您的实际需求进行调整，以确保在更新过程中集群的可用性和稳定性得到保障。同时，您还可以根据实际情况使用其他的 RollingUpdate 策略，如 Canary 策略等，来更好地控制应用程序的更新过程。
+
+=============================================================================
+MaxUnavailable 最大不可用数量
+MaxUnavailable 是 CloneSet 限制下属最多不可用的 Pod 数量。 它可以设置为一个绝对值或者百分比，如果不填 Kruise 会设置为默认值 20%。
+apiVersion: apps.kruise.io/v1alpha1
+kind: CloneSet
+spec:
+  # ...
+  updateStrategy:
+    maxUnavailable: 20%
+
+MaxSurge 最大弹性数量
+MaxSurge 是 CloneSet 控制最多能扩出来超过 replicas 的 Pod 数量。 它可以设置为一个绝对值或者百分比，如果不填 Kruise 会设置为默认值 0。
+如果发布的时候设置了 maxSurge，控制器会先多扩出来 maxSurge 数量的 Pod（此时 Pod 总数为 (replicas+maxSurge))，然后再开始发布存量的 Pod。 然后，当新版本 Pod 数量已经满足 partition 要求之后，控制器会再把多余的 maxSurge 数量的 Pod 删除掉，保证最终的 Pod 数量符合 replicas。
+要说明的是，maxSurge 不允许配合 InPlaceOnly 更新模式使用。 另外，如果是与 InPlaceIfPossible 策略配合使用，控制器会先扩出来 maxSurge 数量的 Pod，再对存量 Pod 做原地升级。
